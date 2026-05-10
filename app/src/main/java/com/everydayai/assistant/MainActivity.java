@@ -388,7 +388,7 @@ public class MainActivity extends AppCompatActivity {
         
         try {
             List<String> cmd = new ArrayList<>();
-            cmd.add("getFilesDir() + "/llama-cli"");
+            cmd.add(getFilesDir() + "/llama-cli");
             cmd.add("-m");
             cmd.add(modelPath);
             
