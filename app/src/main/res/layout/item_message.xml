@@ -7,6 +7,7 @@
     android:paddingEnd="8dp"
     android:paddingBottom="4dp">
 
+    <!-- User message -->
     <LinearLayout
         android:id="@+id/user_block"
         android:layout_width="wrap_content"
@@ -35,6 +36,7 @@
             android:paddingTop="2dp" />
     </LinearLayout>
 
+    <!-- AI message -->
     <LinearLayout
         android:id="@+id/ai_block"
         android:layout_width="wrap_content"
@@ -53,13 +55,30 @@
             android:textSize="14sp"
             android:padding="12dp" />
 
-        <TextView
-            android:id="@+id/ai_time"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#9090a6"
-            android:textSize="10sp"
+            android:orientation="horizontal"
             android:layout_gravity="start"
-            android:paddingTop="2dp" />
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/ai_time"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#9090a6"
+                android:textSize="10sp"
+                android:paddingTop="2dp" />
+
+            <ImageButton
+                android:id="@+id/copy_btn"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_copy"
+                android:background="?selectableItemBackgroundBorderless"
+                android:contentDescription="Копировать"
+                android:padding="2dp" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>
