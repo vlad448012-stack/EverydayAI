@@ -22,6 +22,14 @@
             android:textSize="18sp" />
 
         <ImageButton
+            android:id="@+id/settings_btn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_settings"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="Settings" />
+
+        <ImageButton
             android:id="@+id/clear_btn"
             android:layout_width="40dp"
             android:layout_height="40dp"
@@ -98,15 +106,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp"
-        android:paddingBottom="24dp"
+        android:padding="10dp"
+        android:paddingBottom="20dp"
         android:background="#0c0c10">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingBottom="8dp">
+            android:paddingBottom="6dp">
 
             <ImageButton
                 android:id="@+id/attach_btn"
@@ -130,20 +138,25 @@
                 android:background="@drawable/input_bg"
                 android:paddingStart="16dp"
                 android:paddingEnd="8dp"
-                android:layout_marginEnd="8dp">
+                android:layout_marginEnd="8dp"
+                android:minHeight="48dp">
 
                 <EditText
                     android:id="@+id/input"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="40dp"
                     android:background="@null"
                     android:hint="Write a message..."
                     android:textColor="#e4e4ed"
                     android:textColorHint="#6a6a7c"
-                    android:textSize="14sp"
-                    android:maxLines="4"
+                    android:textSize="15sp"
+                    android:maxLines="5"
                     android:inputType="textMultiLine"
-                    android:imeOptions="actionSend" />
+                    android:imeOptions="actionSend"
+                    android:gravity="center_vertical"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
             </LinearLayout>
 
             <ImageButton
