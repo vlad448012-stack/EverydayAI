@@ -84,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
         useVulkan = prefs.getBoolean("use_vulkan", false);
 
         initViews();
+        ensureCliBinary();
         checkPerms();
         addMsg("\u0417\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435. \u042f \u0432\u0430\u0448 AI-\u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043d\u0442.", ChatMessage.AI, time());
         updateStatus();
@@ -147,6 +148,27 @@ public class MainActivity extends AppCompatActivity {
             speedText.setText("\u0413\u043e\u0442\u043e\u0432");
         }
         statusText.setText(status);
+    }
+
+    
+    private void ensureCliBinary() {
+        File cliFile = new File(getFilesDir(), "llama-cli");
+        if (!cliFile.exists()) {
+            try {
+                File src = new File("/data/data/com.termux/files/home/llama-cli");
+                if (src.exists()) {
+                    InputStream in = new FileInputStream(src);
+                    OutputStream out = new FileOutputStream(cliFile);
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                    in.close();
+                    out.close();
+                    cliFile.setExecutable(true);
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "llama-cli скопирован", Toast.LENGTH_SHORT).show());
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     private void showSettings() {
@@ -366,7 +388,7 @@ public class MainActivity extends AppCompatActivity {
         
         try {
             List<String> cmd = new ArrayList<>();
-            cmd.add("/data/data/com.termux/files/home/llama-cli");
+            cmd.add("getFilesDir() + "/llama-cli"");
             cmd.add("-m");
             cmd.add(modelPath);
             
@@ -406,7 +428,7 @@ public class MainActivity extends AppCompatActivity {
             return out;
         } catch (Exception e) {
             return "\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u043f\u0443\u0441\u043a\u0430: " + e.getMessage() +
-                   "\n\n\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435, \u0447\u0442\u043e llama-cli \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d \u0432 /data/data/com.termux/files/home/llama-cli";
+                   "\n\n\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435, \u0447\u0442\u043e llama-cli \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d \u0432 getFilesDir() + "/llama-cli"";
         }
     }
 
