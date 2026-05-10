@@ -366,7 +366,7 @@ public class MainActivity extends AppCompatActivity {
         
         try {
             List<String> cmd = new ArrayList<>();
-            cmd.add("/data/data/com.everydayai.assistant/files/llama-cli");
+            cmd.add("/data/data/com.termux/files/home/llama-cli");
             cmd.add("-m");
             cmd.add(modelPath);
             
@@ -406,7 +406,7 @@ public class MainActivity extends AppCompatActivity {
             return out;
         } catch (Exception e) {
             return "\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u043f\u0443\u0441\u043a\u0430: " + e.getMessage() +
-                   "\n\n\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435, \u0447\u0442\u043e llama-cli \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d \u0432 /data/data/com.everydayai.assistant/files/llama-cli";
+                   "\n\n\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435, \u0447\u0442\u043e llama-cli \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d \u0432 /data/data/com.termux/files/home/llama-cli";
         }
     }
 
