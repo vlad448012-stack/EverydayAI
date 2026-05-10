@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0c0c10">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:background="#0c0c10">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="everyday ai"
+            android:textColor="#c0c0d8"
+            android:textSize="18sp" />
+
+        <ImageButton
+            android:id="@+id/clear_btn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_clear"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="Clear" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/badge_bg"
+        android:gravity="center_vertical"
+        android:padding="10dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp">
+
+        <View
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:background="@drawable/dot"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/model_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Qwen2.5-VL-3B Q5_K_M"
+            android:textColor="#c0c0d0"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/speed_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ready"
+            android:textColor="#34d399"
+            android:textSize="11sp"
+            android:background="@drawable/speed_bg"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="8dp"
+        android:clipToPadding="false"
+        android:scrollbars="none" />
+
+    <FrameLayout
+        android:id="@+id/loading"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:padding="8dp">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bubble_ai"
+            android:padding="12dp"
+            android:orientation="horizontal">
+            <View style="@style/Dot" android:layout_marginEnd="4dp" />
+            <View style="@style/Dot" android:layout_marginEnd="4dp" />
+            <View style="@style/Dot" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:paddingBottom="24dp"
+        android:background="#0c0c10">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingBottom="8dp">
+
+            <ImageButton
+                android:id="@+id/attach_btn"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_image"
+                android:background="@drawable/chip_bg"
+                android:layout_marginEnd="4dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/input_bg"
+                android:paddingStart="16dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="8dp">
+
+                <EditText
+                    android:id="@+id/input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:hint="Write a message..."
+                    android:textColor="#e4e4ed"
+                    android:textColorHint="#6a6a7c"
+                    android:textSize="14sp"
+                    android:maxLines="4"
+                    android:inputType="textMultiLine"
+                    android:imeOptions="actionSend" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/send_btn"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_send"
+                android:background="@drawable/send_bg" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
