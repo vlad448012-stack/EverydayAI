@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0c0c10</color>
+    <color name="surface">#1a1a23</color>
+    <color name="text">#e4e4ed</color>
+    <color name="text2">#9090a6</color>
+    <color name="green">#34d399</color>
+    <color name="user_bubble">#303247</color>
+    <color name="ai_bubble">#1e1e2a</color>
+</resources>
