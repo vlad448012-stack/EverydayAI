@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.EverydayAI" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+    </style>
+    <style name="Dot">
+        <item name="android:layout_width">6dp</item>
+        <item name="android:layout_height">6dp</item>
+        <item name="android:background">@drawable/dot</item>
+    </style>
+</resources>
