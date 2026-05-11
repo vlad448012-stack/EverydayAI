@@ -6,6 +6,7 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -36,11 +37,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -137,21 +136,21 @@ public class MainActivity extends AppCompatActivity {
         File cliFile = new File(cliPath);
         if (!cliFile.exists()) {
             try {
-                File src = new File("/storage/emulated/0/Documents/llama-cli");
-                if (src.exists()) {
-                    InputStream in = new FileInputStream(src);
-                    File parent = cliFile.getParentFile();
-                    if (parent != null && !parent.exists()) parent.mkdirs();
-                    OutputStream out = new FileOutputStream(cliFile);
-                    byte[] buf = new byte[8192];
-                    int len;
-                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
-                    in.close();
-                    out.close();
-                    cliFile.setExecutable(true);
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "llama-cli скопирован", Toast.LENGTH_SHORT).show());
-                }
-            } catch (Exception ignored) {}
+                AssetManager am = getAssets();
+                InputStream in = am.open("llama-cli");
+                File parent = cliFile.getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
+                FileOutputStream out = new FileOutputStream(cliFile);
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                in.close();
+                out.close();
+                cliFile.setExecutable(true);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "llama-cli готов", Toast.LENGTH_SHORT).show());
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ошибка копирования: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
         }
     }
 
@@ -201,9 +200,7 @@ public class MainActivity extends AppCompatActivity {
         modelInput.setPadding(20, 14, 20, 14);
         layout.addView(modelInput);
         
-        View space1 = new View(this);
-        space1.setLayoutParams(new LinearLayout.LayoutParams(1, 16));
-        layout.addView(space1);
+        addSpace(layout);
         
         TextView mmprojLabel = new TextView(this);
         mmprojLabel.setText("Путь к mmproj файлу:");
@@ -220,28 +217,7 @@ public class MainActivity extends AppCompatActivity {
         mmprojInput.setPadding(20, 14, 20, 14);
         layout.addView(mmprojInput);
         
-        View space2 = new View(this);
-        space2.setLayoutParams(new LinearLayout.LayoutParams(1, 16));
-        layout.addView(space2);
-        
-        TextView cliLabel = new TextView(this);
-        cliLabel.setText("Путь к llama-cli:");
-        cliLabel.setTextSize(13);
-        cliLabel.setTextColor(0xFF9090A6);
-        layout.addView(cliLabel);
-        
-        final EditText cliInput = new EditText(this);
-        cliInput.setText(cliPath);
-        cliInput.setTextSize(13);
-        cliInput.setSingleLine(true);
-        cliInput.setBackgroundColor(0xFF1A1A23);
-        cliInput.setTextColor(0xFFE4E4ED);
-        cliInput.setPadding(20, 14, 20, 14);
-        layout.addView(cliInput);
-        
-        View space3 = new View(this);
-        space3.setLayoutParams(new LinearLayout.LayoutParams(1, 16));
-        layout.addView(space3);
+        addSpace(layout);
         
         TextView promptLabel = new TextView(this);
         promptLabel.setText("Системный промпт:");
@@ -259,9 +235,7 @@ public class MainActivity extends AppCompatActivity {
         promptInput.setGravity(Gravity.TOP);
         layout.addView(promptInput);
         
-        View space4 = new View(this);
-        space4.setLayoutParams(new LinearLayout.LayoutParams(1, 16));
-        layout.addView(space4);
+        addSpace(layout);
         
         final CheckBox vulkanCheck = new CheckBox(this);
         vulkanCheck.setText("Использовать Vulkan (GPU)");
@@ -270,9 +244,7 @@ public class MainActivity extends AppCompatActivity {
         vulkanCheck.setChecked(useVulkan);
         layout.addView(vulkanCheck);
         
-        View space5 = new View(this);
-        space5.setLayoutParams(new LinearLayout.LayoutParams(1, 20));
-        layout.addView(space5);
+        addSpace(layout);
         
         File modelFile = new File(modelPath);
         TextView statusInfo = new TextView(this);
@@ -287,13 +259,11 @@ public class MainActivity extends AppCompatActivity {
         builder.setPositiveButton("Сохранить", (dialog, which) -> {
             modelPath = modelInput.getText().toString().trim();
             mmprojPath = mmprojInput.getText().toString().trim();
-            cliPath = cliInput.getText().toString().trim();
             systemPrompt = promptInput.getText().toString().trim();
             useVulkan = vulkanCheck.isChecked();
             prefs.edit()
                 .putString("model_path", modelPath)
                 .putString("mmproj_path", mmprojPath)
-                .putString("cli_path", cliPath)
                 .putString("system_prompt", systemPrompt)
                 .putBoolean("use_vulkan", useVulkan)
                 .apply();
@@ -302,6 +272,12 @@ public class MainActivity extends AppCompatActivity {
         });
         builder.setNegativeButton("Отмена", null);
         builder.show();
+    }
+
+    private void addSpace(LinearLayout layout) {
+        View space = new View(this);
+        space.setLayoutParams(new LinearLayout.LayoutParams(1, 16));
+        layout.addView(space);
     }
 
     private void checkPerms() {
@@ -404,9 +380,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String runLlama(String prompt, String imagePath) {
-        File cliFile = new File(cliPath);
-        if (!cliFile.exists()) {
-            return "Ошибка: llama-cli не найден\nПуть: " + cliPath;
+        if (!new File(modelPath).exists()) {
+            return "Ошибка: модель не найдена\nПуть: " + modelPath;
         }
 
         try {
