@@ -7,17 +7,9 @@ import android.widget.ImageButton;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.net.*;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
 
 public class MainActivity extends AppCompatActivity {
@@ -33,7 +25,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ID из твоего разметки (activity_main.xml)
         recycler = findViewById(R.id.chat_recycler);
         input = findViewById(R.id.input);
         ImageButton sendBtn = findViewById(R.id.send_btn);
@@ -48,7 +39,6 @@ public class MainActivity extends AppCompatActivity {
         sendBtn.setOnClickListener(v -> {
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) {
-                // В твоем проекте ChatMessage(String, int, String)
                 messages.add(new ChatMessage(text, 1, ""));
                 adapter.notifyItemInserted(messages.size() - 1);
                 recycler.smoothScrollToPosition(messages.size() - 1);
@@ -80,14 +70,17 @@ public class MainActivity extends AppCompatActivity {
                 File icd = new File(getFilesDir(), "adreno.json");
                 if (!icd.exists()) {
                     String json = "{\"file_format_version\": \"1.0.0\", \"ICD\": {\"library_path\": \"/vendor/lib64/hw/vulkan.adreno.so\", \"api_version\": \"1.3.268\"}}";
-                    new FileOutputStream(icd).write(json.getBytes());
+                    FileOutputStream fos = new FileOutputStream(icd);
+                    fos.write(json.getBytes());
+                    fos.close();
                 }
                 if (!bin.exists()) {
                     URL url = new URL("https://github.com/ggml-org/llama.cpp/releases/download/b3106/llama-b3106-bin-android-arm64.tar.gz");
                     InputStream in = new GZIPInputStream(url.openStream());
                     FileOutputStream out = new FileOutputStream(bin);
                     byte[] buf = new byte[8192];
-                    int r; while ((r = in.read(buf)) != -1) out.write(buf, 0, r);
+                    int len;
+                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
                     out.close(); in.close();
                 }
                 bin.setExecutable(true);
@@ -117,8 +110,10 @@ public class MainActivity extends AppCompatActivity {
             Process p = pb.start();
             BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
             StringBuilder sb = new StringBuilder();
-            String l; while ((l = r.readLine()) != null) sb.append(l).append("\n");
+            String line;
+            while ((line = r.readLine()) != null) sb.append(line).append("\n");
+            p.waitFor();
             return sb.toString().trim();
-        } catch (Exception e) { return "Error: " + e.getMessage(); }
+        } catch (Exception e) { return "Ошибка: " + e.getMessage(); }
     }
 }
