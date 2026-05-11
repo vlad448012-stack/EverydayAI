@@ -360,9 +360,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         try {
+            String nativeDir = getApplicationInfo().nativeLibraryDir;
             List<String> cmd = new ArrayList<>();
-            cmd.add(cliPath);
-            cmd.add("-m");
+            cmd.add(nativeDir + "/libllama.so");
             cmd.add(modelPath);
 
             if (imagePath != null && !imagePath.isEmpty() && new File(mmprojPath).exists()) {
