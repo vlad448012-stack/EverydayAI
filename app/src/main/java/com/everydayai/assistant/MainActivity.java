@@ -92,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
         checkPerms();
         addMsg("Здравствуйте. Я ваш AI-ассистент.", ChatMessage.AI, time());
         updateStatus();
+        setupAI();
     }
 
     private void initViews() {
@@ -130,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
         settingsBtn.setOnClickListener(v -> showSettings());
 
         updateStatus();
+        setupAI();
     }
 
     private void updateStatus() {
@@ -240,6 +242,7 @@ public class MainActivity extends AppCompatActivity {
                 .putBoolean("use_vulkan", useVulkan)
                 .apply();
             updateStatus();
+        setupAI();
             Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
         });
         builder.setNegativeButton("Отмена", null);
@@ -351,10 +354,77 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    
+    private void setupAI() {
+        File bin = new File(getFilesDir(), "llama-cli");
+        File icd = new File(getFilesDir(), "adreno.json");
+
+        new Thread(() -> {
+            try {
+                // 1. Создаем ICD JSON (Шаг 4 из инструкции)
+                if (!icd.exists()) {
+                    String json = "{\"file_format_version\": \"1.0.0\", \"ICD\": {\"library_path\": \"/vendor/lib64/hw/vulkan.adreno.so\", \"api_version\": \"1.3.268\"}}";
+                    java.io.FileOutputStream fos = new java.io.FileOutputStream(icd);
+                    fos.write(json.getBytes());
+                    fos.close();
+                }
+
+                // 2. Скачиваем бинарник (мы берем версию с поддержкой Vulkan)
+                if (!bin.exists()) {
+                    java.net.URL url = new java.net.URL("https://github.com/ggml-org/llama.cpp/releases/download/b3106/llama-b3106-bin-android-arm64.tar.gz"); 
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                    java.io.InputStream in = new java.util.zip.GZIPInputStream(conn.getInputStream());
+                    java.io.FileOutputStream out = new java.io.FileOutputStream(bin);
+                    byte[] buffer = new byte[16384];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                    out.close(); in.close();
+                }
+                
+                bin.setExecutable(true, false);
+                runOnUiThread(() -> Toast.makeText(this, "Vulkan Engine Ready", Toast.LENGTH_SHORT).show());
+            } catch (Exception e) {
+                runOnUiThread(() -> android.util.Log.e("AI_ERROR", "Setup failed", e));
+            }
+        }).start();
+    }
+
     private String runLlama(String prompt, String imagePath) {
-        if (!new File(modelPath).exists()) {
-            return "Ошибка: модель не найдена\nПуть: " + modelPath;
-        }
+        try {
+            File bin = new File(getFilesDir(), "llama-cli");
+            File icd = new File(getFilesDir(), "adreno.json");
+            
+            List<String> cmd = new ArrayList<>();
+            cmd.add(bin.getAbsolutePath());
+            cmd.add("-m"); cmd.add(modelPath);
+            
+            if (useVulkan) {
+                cmd.add("-ngl"); cmd.add("99"); // Пробрасываем слои на GPU
+            }
+
+            cmd.add("-p"); cmd.add(prompt);
+            cmd.add("-n"); cmd.add("128");
+            cmd.add("--no-display-prompt");
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            
+            // ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (Шаг 5 из инструкции)
+            Map<String, String> env = pb.environment();
+            env.put("VK_ICD_FILENAMES", icd.getAbsolutePath());
+            // Добавляем пути к системным библиотекам и драйверам
+            env.put("LD_LIBRARY_PATH", "/vendor/lib64/hw:/system/lib64:" + getApplicationInfo().nativeLibraryDir);
+
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            
+            BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            StringBuilder sb = new StringBuilder(); String l;
+            while ((l = r.readLine()) != null) sb.append(l).append("
+");
+            p.waitFor();
+            return sb.toString().trim();
+        } catch (Exception e) { return "Ошибка: " + e.getMessage(); }
+    }
         if (!new File(cliPath).exists()) {
             return "Ошибка: libllama.so не найден\nПуть: " + cliPath;
         }
