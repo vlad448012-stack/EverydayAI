@@ -6,7 +6,6 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,13 +16,11 @@ import android.speech.RecognizerIntent;
 import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,9 +36,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -82,12 +79,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(b);
         setContentView(R.layout.activity_main);
 
+        // Путь к нативной библиотеке — здесь Android разрешает выполнение
+        cliPath = getApplicationInfo().nativeLibraryDir + "/libllama.so";
+
         prefs = getSharedPreferences("everydayai", MODE_PRIVATE);
         modelPath = prefs.getString("model_path", "/storage/emulated/0/1_ВсеСкрипты/Локальное/ии/Qwen2.5-VL-3B-Instruct-q5_k_m.gguf");
         mmprojPath = prefs.getString("mmproj_path", "/storage/emulated/0/1_ВсеСкрипты/Локальное/ии/mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf");
         systemPrompt = prefs.getString("system_prompt", "Ты полезный AI-ассистент. Отвечай на русском языке. Будь кратким и по делу.");
         useVulkan = prefs.getBoolean("use_vulkan", false);
-        cliPath = prefs.getString("cli_path", getFilesDir() + "/llama-cli");
 
         initViews();
         checkPerms();
@@ -143,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
         modelText.setText(modelName);
         
         StringBuilder sb = new StringBuilder();
-        if (!cliFile.exists()) sb.append("llama-cli не установлен. ");
+        if (!cliFile.exists()) sb.append("libllama.so не найден. ");
         if (!modelFile.exists()) sb.append("Модель не найдена. ");
         else if (!mmprojFile.exists()) sb.append("mmproj не найден. ");
         
@@ -156,12 +155,6 @@ public class MainActivity extends AppCompatActivity {
             statusText.setTextColor(0xFFEF4444);
             speedText.setText("Ошибка");
         }
-
-        if (new File(cliPath).exists()) {
-            statusText.setText(useVulkan ? "Vulkan активен" : "CPU активен");
-            statusText.setTextColor(0xFF34D399);
-            speedText.setText("Готов");
-        }
     }
 
     private void showSettings() {
@@ -172,84 +165,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(50, 30, 50, 30);
-
-        // Status
-        TextView statusLabel = new TextView(this);
-        File cliFile = new File(cliPath);
-        statusLabel.setText("llama-cli: " + (cliFile.exists() ? "Установлен (" + cliFile.length()/1024 + " KB)" : "Не установлен"));
-        statusLabel.setTextColor(cliFile.exists() ? 0xFF34D399 : 0xFFEF4444);
-        statusLabel.setTextSize(13);
-        layout.addView(statusLabel);
-
-        View space0 = new View(this);
-        space0.setLayoutParams(new LinearLayout.LayoutParams(1, 16));
-        layout.addView(space0);
-
-        // Copy button with progress
-        LinearLayout copyRow = new LinearLayout(this);
-        copyRow.setOrientation(LinearLayout.HORIZONTAL);
-        copyRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        Button copyBtn = new Button(this);
-        copyBtn.setText(cliFile.exists() ? "Переустановить llama-cli" : "Установить llama-cli");
-        copyBtn.setTextSize(13);
-        copyBtn.setBackgroundColor(0xFF2D2D3F);
-        copyBtn.setTextColor(0xFFE4E4ED);
-        copyBtn.setOnClickListener(v -> {
-            copyBtn.setEnabled(false);
-            copyBtn.setText("Копирование...");
-            ProgressBar pb = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-            pb.setLayoutParams(new LinearLayout.LayoutParams(200, 20));
-            copyRow.addView(pb);
-
-            executor.execute(() -> {
-                try {
-                    AssetManager am = getAssets();
-                    InputStream in = am.open("llama-cli");
-                    File parent = cliFile.getParentFile();
-                    if (parent != null && !parent.exists()) parent.mkdirs();
-                    FileOutputStream out = new FileOutputStream(cliFile);
-                    byte[] buf = new byte[8192];
-                    int len;
-                    int total = in.available();
-                    int copied = 0;
-                    while ((len = in.read(buf)) > 0) {
-                        out.write(buf, 0, len);
-                        copied += len;
-                        int pct = total > 0 ? (copied * 100 / total) : 50;
-                        handler.post(() -> pb.setProgress(pct));
-                    }
-                    in.close();
-                    out.close();
-                    cliFile.setExecutable(true);
-                    handler.post(() -> {
-                        copyRow.removeView(pb);
-                        copyBtn.setText("Установлено");
-                        copyBtn.setEnabled(true);
-                        statusLabel.setText("llama-cli: Установлен (" + cliFile.length()/1024 + " KB)");
-                        statusLabel.setTextColor(0xFF34D399);
-                        updateStatus();
-                        Toast.makeText(MainActivity.this, "llama-cli установлен", Toast.LENGTH_SHORT).show();
-                    });
-                } catch (Exception e) {
-                    handler.post(() -> {
-                        copyRow.removeView(pb);
-                        copyBtn.setText("Ошибка: " + e.getMessage());
-                        copyBtn.setEnabled(true);
-                        Toast.makeText(MainActivity.this, "Ошибка: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    });
-                }
-            });
-        });
-
-        copyRow.addView(copyBtn);
-        layout.addView(copyRow);
-
-        View space1 = new View(this);
-        space1.setLayoutParams(new LinearLayout.LayoutParams(1, 20));
-        layout.addView(space1);
-
-        // Model path
+        
         TextView modelLabel = new TextView(this);
         modelLabel.setText("Путь к .gguf модели:");
         modelLabel.setTextSize(13);
@@ -440,7 +356,7 @@ public class MainActivity extends AppCompatActivity {
             return "Ошибка: модель не найдена\nПуть: " + modelPath;
         }
         if (!new File(cliPath).exists()) {
-            return "Ошибка: llama-cli не установлен. Зайдите в Настройки и нажмите кнопку установки.";
+            return "Ошибка: libllama.so не найден\nПуть: " + cliPath;
         }
 
         try {
@@ -484,7 +400,9 @@ public class MainActivity extends AppCompatActivity {
             if (out.isEmpty()) return "Нет ответа (код: " + p.exitValue() + ")";
             return out;
         } catch (Exception e) {
-            return "Ошибка запуска: " + e.getMessage();
+            StringWriter sw = new StringWriter();
+            e.printStackTrace(new PrintWriter(sw));
+            return "Ошибка запуска:\n" + sw.toString();
         }
     }
 
