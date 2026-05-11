@@ -30,7 +30,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -52,15 +51,13 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERM_REQ = 100;
-    private static final int REQ_GALLERY = 101;
-    private static final int REQ_CAMERA = 102;
     private static final int REQ_VOICE = 103;
 
     private RecyclerView recycler;
     private MessageAdapter adapter;
     private EditText input;
-    private ImageButton sendBtn, attachBtn, cameraBtn, voiceBtn, clearBtn, settingsBtn;
-    private TextView modelText, speedText, statusText;
+    private ImageButton sendBtn, settingsBtn, clearBtn;
+    private TextView modelText, statusText;
     private FrameLayout loading;
 
     private final List<ChatMessage> messages = new ArrayList<>();
@@ -69,32 +66,26 @@ public class MainActivity extends AppCompatActivity {
     private boolean busy = false;
 
     private SharedPreferences prefs;
-    private String modelPath;
-    private String mmprojPath;
-    private String systemPrompt;
+    private String modelPath, mmprojPath, systemPrompt, cliPath, icdPath;
     private boolean useVulkan;
-    private File currentPhotoFile;
-    private String cliPath;
-    private String icdPath;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_main);
 
+        // ДИНАМИЧЕСКИЙ ПОИСК ПУТИ (Фикс для arm64-v8a)
         cliPath = getApplicationInfo().nativeLibraryDir + "/libllama.so";
         icdPath = getFilesDir().getAbsolutePath() + "/adreno.json";
 
         prefs = getSharedPreferences("everydayai", MODE_PRIVATE);
         modelPath = prefs.getString("model_path", "/storage/emulated/0/1_ВсеСкрипты/Локальное/ии/Qwen2.5-VL-3B-Instruct-q5_k_m.gguf");
         mmprojPath = prefs.getString("mmproj_path", "/storage/emulated/0/1_ВсеСкрипты/Локальное/ии/mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf");
-        systemPrompt = prefs.getString("system_prompt", "Ты полезный AI-ассистент. Отвечай на русском языке. Будь кратким и по делу.");
+        systemPrompt = prefs.getString("system_prompt", "Ты полезный AI-ассистент.");
         useVulkan = prefs.getBoolean("use_vulkan", false);
 
         initViews();
-        checkPerms();
         createVulkanConfig();
-        addMsg("Здравствуйте. Я ваш AI-ассистент.", ChatMessage.AI, time());
         updateStatus();
     }
 
@@ -114,83 +105,59 @@ public class MainActivity extends AppCompatActivity {
         recycler = findViewById(R.id.recycler);
         input = findViewById(R.id.input);
         sendBtn = findViewById(R.id.send_btn);
-        attachBtn = findViewById(R.id.attach_btn);
-        cameraBtn = findViewById(R.id.camera_btn);
-        voiceBtn = findViewById(R.id.voice_btn);
         clearBtn = findViewById(R.id.clear_btn);
         settingsBtn = findViewById(R.id.settings_btn);
         modelText = findViewById(R.id.model_text);
-        speedText = findViewById(R.id.speed_text);
         statusText = findViewById(R.id.status_text);
         loading = findViewById(R.id.loading);
 
-        adapter = new MessageAdapter(messages, this::copyToClipboard);
-        LinearLayoutManager lm = new LinearLayoutManager(this);
-        lm.setStackFromEnd(true);
-        recycler.setLayoutManager(lm);
+        adapter = new MessageAdapter(messages, text -> {
+            ClipboardManager cb = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            cb.setPrimaryClip(ClipData.newPlainText("res", text));
+        });
+        
+        recycler.setLayoutManager(new LinearLayoutManager(this));
         recycler.setAdapter(adapter);
 
         sendBtn.setOnClickListener(v -> sendMsg());
-        attachBtn.setOnClickListener(v -> pickImage());
-        cameraBtn.setOnClickListener(v -> openCamera());
-        voiceBtn.setOnClickListener(v -> startVoiceInput());
         clearBtn.setOnClickListener(v -> {
             messages.clear();
             adapter.notifyDataSetChanged();
-            addMsg("Чат очищен.", ChatMessage.AI, time());
         });
         settingsBtn.setOnClickListener(v -> showSettings());
     }
 
     private void updateStatus() {
-        File modelFile = new File(modelPath);
-        File cliFile = new File(cliPath);
-        String modelName = modelFile.getName();
-        if (modelName.length() > 25) modelName = modelName.substring(0, 22) + "...";
-        modelText.setText(modelName);
-        
-        if (cliFile.exists() && modelFile.exists()) {
-            statusText.setText(useVulkan ? "Vulkan активен" : "CPU активен");
+        File mFile = new File(modelPath);
+        File cFile = new File(cliPath);
+        modelText.setText(mFile.getName());
+        if (cFile.exists() && mFile.exists()) {
+            statusText.setText(useVulkan ? "Vulkan ACTIVE" : "CPU ACTIVE");
             statusText.setTextColor(0xFF34D399);
-            speedText.setText("Готов");
         } else {
-            statusText.setText("Ошибка: файлы не найдены");
+            statusText.setText("MISSING FILES");
             statusText.setTextColor(0xFFEF4444);
-            speedText.setText("Ошибка");
         }
     }
 
     private void showSettings() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Настройки");
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 30, 50, 30);
+        builder.setTitle("Settings");
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setPadding(50, 20, 50, 20);
         
-        final EditText modelInput = new EditText(this);
-        modelInput.setText(modelPath);
-        layout.addView(modelInput);
+        final EditText mIn = new EditText(this); mIn.setText(modelPath); l.addView(mIn);
+        final CheckBox vCh = new CheckBox(this); vCh.setText("Use Vulkan"); vCh.setChecked(useVulkan); l.addView(vCh);
         
-        final CheckBox vulkanCheck = new CheckBox(this);
-        vulkanCheck.setText("Использовать Vulkan (GPU)");
-        vulkanCheck.setChecked(useVulkan);
-        layout.addView(vulkanCheck);
-        
-        scroll.addView(layout);
-        builder.setView(scroll);
-        builder.setPositiveButton("Сохранить", (dialog, which) -> {
-            modelPath = modelInput.getText().toString().trim();
-            useVulkan = vulkanCheck.isChecked();
+        builder.setView(l);
+        builder.setPositiveButton("Save", (d, w) -> {
+            modelPath = mIn.getText().toString();
+            useVulkan = vCh.isChecked();
             prefs.edit().putString("model_path", modelPath).putBoolean("use_vulkan", useVulkan).apply();
             updateStatus();
         });
         builder.show();
-    }
-
-    private void checkPerms() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, PERM_REQ);
     }
 
     private void sendMsg() {
@@ -201,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
         busy = true;
         loading.setVisibility(View.VISIBLE);
         executor.execute(() -> {
-            String resp = runLlama(t, null);
+            String resp = runLlama(t);
             handler.post(() -> {
                 addMsg(resp, ChatMessage.AI, time());
                 loading.setVisibility(View.GONE);
@@ -210,39 +177,14 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void pickImage() {
-        Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(i, REQ_GALLERY);
-    }
-
-    private void openCamera() {
-        Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(i, REQ_CAMERA);
-    }
-
-    private void startVoiceInput() {
-        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
-        try { startActivityForResult(i, REQ_VOICE); } catch (Exception e) {}
-    }
-
-    @Override
-    protected void onActivityResult(int req, int res, @Nullable Intent data) {
-        super.onActivityResult(req, res, data);
-        if (res == RESULT_OK && req == REQ_VOICE && data != null) {
-            ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (results != null) input.setText(results.get(0));
-        }
-    }
-
-    private String runLlama(String prompt, String imagePath) {
+    private String runLlama(String prompt) {
         try {
             List<String> cmd = new ArrayList<>();
             cmd.add(cliPath);
             cmd.add("-m"); cmd.add(modelPath);
             if (useVulkan) { cmd.add("-ngl"); cmd.add("99"); }
             cmd.add("-p"); cmd.add(prompt);
-            cmd.add("-n"); cmd.add("256");
+            cmd.add("-n"); cmd.add("128");
             cmd.add("--no-display-prompt");
 
             ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -259,12 +201,7 @@ public class MainActivity extends AppCompatActivity {
             while ((l = r.readLine()) != null) sb.append(l).append("\n");
             p.waitFor();
             return sb.toString().trim();
-        } catch (Exception e) { return "Ошибка: " + e.getMessage(); }
-    }
-
-    private void copyToClipboard(String text) {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("res", text));
+        } catch (Exception e) { return "Error: " + e.getMessage(); }
     }
 
     private void addMsg(String text, int role, String t) {
