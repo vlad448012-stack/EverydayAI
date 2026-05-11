@@ -84,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
         prefs = getSharedPreferences("everydayai", MODE_PRIVATE);
         modelPath = prefs.getString("model_path", "/storage/emulated/0/1_ВсеСкрипты/Локальное/ии/Qwen2.5-VL-3B-Instruct-q5_k_m.gguf");
         mmprojPath = prefs.getString("mmproj_path", "/storage/emulated/0/1_ВсеСкрипты/Локальное/ии/mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf");
-        systemPrompt = prefs.getString("system_prompt", "Ты — полезный AI-ассистент. Отвечай на русском языке. Будь кратким и по делу.");
+        systemPrompt = prefs.getString("system_prompt", "Ты полезный AI-ассистент. Отвечай на русском языке. Будь кратким и по делу.");
         useVulkan = prefs.getBoolean("use_vulkan", false);
         cliPath = prefs.getString("cli_path", getFilesDir() + "/llama-cli");
 
@@ -137,9 +137,11 @@ public class MainActivity extends AppCompatActivity {
         File cliFile = new File(cliPath);
         if (!cliFile.exists()) {
             try {
-                File src = new File("/data/data/com.termux/files/home/llama-cli");
+                File src = new File("/storage/emulated/0/Documents/llama-cli");
                 if (src.exists()) {
                     InputStream in = new FileInputStream(src);
+                    File parent = cliFile.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
                     OutputStream out = new FileOutputStream(cliFile);
                     byte[] buf = new byte[8192];
                     int len;
@@ -402,10 +404,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String runLlama(String prompt, String imagePath) {
-        if (!new File(modelPath).exists()) {
-            return "Ошибка: модель не найдена\nПуть: " + modelPath;
-        }
-        if (!new File(cliPath).exists()) {
+        File cliFile = new File(cliPath);
+        if (!cliFile.exists()) {
             return "Ошибка: llama-cli не найден\nПуть: " + cliPath;
         }
 
