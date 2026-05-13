@@ -49,6 +49,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import android.os.Environment;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -101,6 +102,15 @@ public class MainActivity extends AppCompatActivity {
         prepareLibraries();
 
         initViews();
+        
+        // Запрос разрешения на управление внешним хранилищем для Android 16+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            }
+        }
         checkPerms();
 
         addMsg("Здравствуйте. Я ваш AI-ассистент.", ChatMessage.AI, time());
@@ -347,8 +357,7 @@ public class MainActivity extends AppCompatActivity {
             String resp = runLlama(t, null);
             handler.post(() -> {
                 addMsg(resp, ChatMessage.AI, time());
-                loading.setVisibility(View.GONE);
-                busy = false;
+                
             });
         });
     }
@@ -411,8 +420,7 @@ public class MainActivity extends AppCompatActivity {
             String desc = runLlama(systemPrompt + "\nDescribe this image in detail.", imageUri.toString());
             handler.post(() -> {
                 addMsg(desc, ChatMessage.AI, time());
-                loading.setVisibility(View.GONE);
-                busy = false;
+                
             });
         });
     }
@@ -420,102 +428,100 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Запуск libllama_exe.so с правильными путями к библиотекам и Vulkan.
      */
-    private String runLlama(String prompt, String imagePath) {
+    
+    /**
+     * Стриминговая версия запуска LLM. Каждая строка вывода немедленно отправляется в UI.
+     * @param prompt Текст запроса
+     * @param imagePath URI изображения (может быть null)
+     * @param onLine Колбэк для каждой строки (вызывается в UI потоке)
+     */
+    private void runModelWithStreaming(String prompt, String imagePath, java.util.function.Consumer<String> onLine) {
         File binary = new File(cliPath);
         if (!binary.exists()) {
-            return "Ошибка: бинарник не найден\n" + cliPath;
+            handler.post(() -> onLine.accept("Ошибка: бинарник не найден\n" + cliPath));
+            return;
         }
         if (!binary.canExecute()) {
-            return "Ошибка: бинарник не исполняемый\n" + cliPath +
-                    "\nПроверьте extractNativeLibs=true в манифесте";
+            handler.post(() -> onLine.accept("Ошибка: бинарник не исполняемый\n" + cliPath +
+                    "\nПроверьте extractNativeLibs=true в манифесте"));
+            return;
         }
         if (!new File(modelPath).exists()) {
-            return "Ошибка: модель не найдена\n" + modelPath;
+            handler.post(() -> onLine.accept("Ошибка: модель не найдена\n" + modelPath));
+            return;
         }
 
-        try {
-            List<String> cmd = new ArrayList<>();
-            cmd.add(cliPath);
-            cmd.add("-m");
-            cmd.add(modelPath);
+        executor.execute(() -> {
+            try {
+                List<String> cmd = new ArrayList<>();
+                cmd.add(cliPath);
+                cmd.add("-m");
+                cmd.add(modelPath);
 
-            if (imagePath != null && !imagePath.isEmpty() && new File(mmprojPath).exists()) {
-                cmd.add("--mmproj");
-                cmd.add(mmprojPath);
-                cmd.add("--image");
-                cmd.add(imagePath);
-            }
-
-            if (useVulkan) {
-                cmd.add("-ngl");
-                cmd.add("99");
-            }
-
-            cmd.add("-p");
-            cmd.add(prompt);
-            cmd.add("-n");
-            cmd.add("256");
-            cmd.add("--temp");
-            cmd.add("0.7");
-            cmd.add("--no-display-prompt");
-
-            ProcessBuilder pb = new ProcessBuilder(cmd);
-            pb.redirectErrorStream(true);
-
-            Map<String, String> env = pb.environment();
-
-            // Первым идёт getFilesDir(), чтобы симлинки с суффиксами имели приоритет
-            String ldPath = getFilesDir().getAbsolutePath() + ":" + nativeLibDir;
-            env.put("LD_LIBRARY_PATH", ldPath);
-
-            if (useVulkan) {
-                File adrenoJson = new File(getFilesDir(), "adreno.json");
-                if (!adrenoJson.exists()) {
-                    try (FileOutputStream fos = new FileOutputStream(adrenoJson)) {
-                        String json = "{\n" +
-                                "  \"file_format_version\": \"1.0.0\",\n" +
-                                "  \"ICD\": {\n" +
-                                "    \"library_path\": \"libvulkan.adreno.so\",\n" +
-                                "    \"api_version\": \"1.1.128\"\n" +
-                                "  }\n" +
-                                "}";
-                        fos.write(json.getBytes());
-                        fos.flush();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                if (imagePath != null && !imagePath.isEmpty() && new File(mmprojPath).exists()) {
+                    cmd.add("--mmproj");
+                    cmd.add(mmprojPath);
+                    cmd.add("--image");
+                    cmd.add(imagePath);
                 }
-                env.put("VK_ICD_FILENAMES", adrenoJson.getAbsolutePath());
+
+                if (useVulkan) {
+                    cmd.add("-ngl");
+                    cmd.add("99");
+                }
+
+                cmd.add("-p");
+                cmd.add(prompt);
+                cmd.add("-n");
+                cmd.add("256");
+                cmd.add("--temp");
+                cmd.add("0.7");
+                cmd.add("--no-display-prompt");
+
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                pb.redirectErrorStream(true);
+
+                Map<String, String> env = pb.environment();
+                String ldPath = getFilesDir().getAbsolutePath() + ":" + nativeLibDir;
+                env.put("LD_LIBRARY_PATH", ldPath);
+
+                if (useVulkan) {
+                    File adrenoJson = new File(getFilesDir(), "adreno.json");
+                    if (!adrenoJson.exists()) {
+                        try (FileOutputStream fos = new FileOutputStream(adrenoJson)) {
+                            String json = "{\n" +
+                                    "  \"file_format_version\": \"1.0.0\",\n" +
+                                    "  \"ICD\": {\n" +
+                                    "    \"library_path\": \"libvulkan.adreno.so\",\n" +
+                                    "    \"api_version\": \"1.1.128\"\n" +
+                                    "  }\n" +
+                                    "}";
+                            fos.write(json.getBytes());
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    env.put("VK_ICD_FILENAMES", adrenoJson.getAbsolutePath());
+                }
+
+                Process p = pb.start();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    final String l = line;
+                    handler.post(() -> onLine.accept(l));
+                }
+                p.waitFor();
+                reader.close();
+            } catch (Exception e) {
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));
+                String errMsg = sw.toString();
+                handler.post(() -> onLine.accept("Ошибка запуска:\n" + errMsg));
             }
-
-            Process p = pb.start();
-
-            BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String l;
-            while ((l = r.readLine()) != null) sb.append(l).append("\n");
-            p.waitFor();
-            r.close();
-
-            String out = sb.toString().trim();
-            if (out.isEmpty()) return "Нет ответа (код: " + p.exitValue() + ")";
-            return out;
-        } catch (Exception e) {
-            StringWriter sw = new StringWriter();
-            e.printStackTrace(new PrintWriter(sw));
-            String errMsg = sw.toString();
-
-            if (errMsg.contains("Permission denied") || errMsg.contains("error=13")) {
-                return "Android 16 Security Block: Проверьте extractNativeLibs в манифесте\n\n" +
-                       "В <application> добавьте:\n" +
-                       "android:extractNativeLibs=\"true\"\n" +
-                       "android:useEmbeddedDex=\"false\"\n\n" +
-                       errMsg;
-            }
-
-            return "Ошибка запуска:\n" + errMsg;
-        }
+        });
     }
+
 
     private void copyToClipboard(String text) {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
